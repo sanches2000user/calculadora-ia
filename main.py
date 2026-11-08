@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request, Response
 import requests
 
 app = FastAPI()
-CLAUDE_API_KEY = os.environ.get("ANTHROPIC_API_KEY").
+CLAUDE_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
 SYSTEM_PROMPT = (
     "Você é um assistente acadêmico de alto nível em Engenharia Mecânica. "
