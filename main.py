@@ -27,7 +27,7 @@ async def upload_image(request: Request):
         }
 
         payload = {
-            "model": "claude-3-5-sonnet-latest",
+            "model": "claude-3-5-sonnet-20241022",
             "max_tokens": 1500,
             "messages": [
                 {
@@ -57,13 +57,11 @@ async def upload_image(request: Request):
             timeout=45
         )
 
-        # Se a Anthropic retornar erro, devolvemos o texto exato para você ver no ESP32
         if response.status_code != 200:
             return f"Erro API Anthropic ({response.status_code}): {response.text}"
 
         response_data = response.json()
         
-        # Validação segura do campo de conteúdo da resposta do Claude
         if "content" in response_data and len(response_data["content"]) > 0:
             return response_data["content"][0].get("text", "Erro: Texto vazio na resposta.")
         else:
