@@ -14,6 +14,7 @@ MODEL = "claude-haiku-5-5"
 LINHAS_POR_PAGINA = 7
 MAX_IMAGENS_POR_SESSAO = 10
 SESSAO_EXPIRA_SEGUNDOS = 15 * 60
+TIMEOUT_ANTHROPIC_SEGUNDOS = 120  # era 60; com mais fotos, o processamento demora mais
 
 SYSTEM_PROMPT = """Voce e um assistente de engenharia mecanica para estudo.
 As imagens mostram partes (podem ser 1 ou varias fotos) de um problema de
@@ -75,6 +76,7 @@ async def capture(request: Request, session_id: str = Path(...)):
     if len(sessao["imagens"]) >= MAX_IMAGENS_POR_SESSAO:
         raise HTTPException(status_code=400, detail=f"Maximo de {MAX_IMAGENS_POR_SESSAO} fotos por exercicio.")
     sessao["imagens"].append(image_bytes)
+    print(f"[capture] sessao={session_id} fotos_agora={len(sessao['imagens'])} tamanho_bytes={len(image_bytes)}")
     return {"status": "ok", "fotos_na_sessao": len(sessao["imagens"])}
 
 
@@ -86,6 +88,9 @@ async def solve(session_id: str = Path(...)):
         raise HTTPException(status_code=400, detail="Nenhuma foto nesta sessao. Mande fotos para /capture antes.")
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY nao configurada no servidor.")
+
+    n_fotos = len(sessao["imagens"])
+    print(f"[solve] sessao={session_id} enviando {n_fotos} fotos pra API...")
 
     conteudo = []
     for img in sessao["imagens"]:
@@ -108,14 +113,16 @@ async def solve(session_id: str = Path(...)):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=TIMEOUT_ANTHROPIC_SEGUNDOS) as client:
             response = await client.post(ANTHROPIC_URL, json=payload, headers=headers)
     except httpx.TimeoutException:
+        print(f"[solve] sessao={session_id} TIMEOUT apos {TIMEOUT_ANTHROPIC_SEGUNDOS}s com {n_fotos} fotos")
         raise HTTPException(status_code=504, detail="Timeout ao chamar a API da Anthropic.")
     finally:
         del sessoes[session_id]
 
     if response.status_code != 200:
+        print(f"[solve] sessao={session_id} erro Anthropic {response.status_code}: {response.text[:300]}")
         raise HTTPException(status_code=502, detail=f"Erro API Anthropic ({response.status_code}): {response.text}")
 
     data = response.json()
@@ -123,7 +130,9 @@ async def solve(session_id: str = Path(...)):
     if not texto:
         raise HTTPException(status_code=502, detail=f"Resposta sem texto: {response.text}")
 
-    return JSONResponse({"pages": monta_paginas(texto), "raw": texto})
+    paginas = monta_paginas(texto)
+    print(f"[solve] sessao={session_id} sucesso: {len(paginas)} paginas geradas")
+    return JSONResponse({"pages": paginas, "raw": texto})
 
 
 @app.post("/upload")
