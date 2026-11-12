@@ -106,11 +106,12 @@ async def solve(session_id: str = Path(...)):
         "content-type": "application/json",
     }
     payload = {
-        "model": MODEL,
-        "max_tokens": 2000,
-        "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": conteudo}],
-    }
+    "model": MODEL,
+    "max_tokens": 6000,
+    "thinking": {"type": "disabled"},
+    "system": SYSTEM_PROMPT,
+    "messages": [{"role": "user", "content": conteudo}],
+}
 
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT_ANTHROPIC_SEGUNDOS) as client:
