@@ -12,8 +12,8 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 MODEL = "claude-haiku-5-5"
 LINHAS_POR_PAGINA = 7
-MAX_IMAGENS_POR_SESSAO = 4
-SESSAO_EXPIRA_SEGUNDOS = 10 * 60
+MAX_IMAGENS_POR_SESSAO = 10
+SESSAO_EXPIRA_SEGUNDOS = 15 * 60
 
 SYSTEM_PROMPT = """Voce e um assistente de engenharia mecanica para estudo.
 As imagens mostram partes (podem ser 1 ou varias fotos) de um problema de
