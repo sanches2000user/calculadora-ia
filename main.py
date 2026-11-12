@@ -10,8 +10,8 @@ app = FastAPI()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
-MODEL = "claude-sonnet-5-5"
-LINHAS_POR_PAGINA = 7  # OLED 128x64
+MODEL = "claude-haiku-5-5"
+LINHAS_POR_PAGINA = 7
 MAX_IMAGENS_POR_SESSAO = 4
 SESSAO_EXPIRA_SEGUNDOS = 10 * 60
 
@@ -36,7 +36,6 @@ formula. Texto simples, sem markdown e sem LaTeX, use ^ para potencia.
 A ultima linha e sempre: RESP: valor e unidade.
 Responda em portugues."""
 
-# Sessoes em memoria: {session_id: {"imagens": [bytes, ...], "criada_em": ts}}
 sessoes: dict[str, dict] = {}
 
 
@@ -67,8 +66,6 @@ def home():
 
 @app.post("/capture/{session_id}")
 async def capture(request: Request, session_id: str = Path(...)):
-    """Recebe UMA foto (JPEG puro no corpo) e guarda na sessao, sem
-    chamar a IA ainda. Chame isso 1 a 4 vezes por exercicio."""
     limpa_sessoes_velhas()
     image_bytes = await request.body()
     if not image_bytes:
@@ -83,8 +80,6 @@ async def capture(request: Request, session_id: str = Path(...)):
 
 @app.post("/solve/{session_id}")
 async def solve(session_id: str = Path(...)):
-    """Junta todas as fotos guardadas na sessao, manda tudo numa unica
-    mensagem pra API da Claude, devolve a resolucao e encerra a sessao."""
     limpa_sessoes_velhas()
     sessao = sessoes.get(session_id)
     if not sessao or not sessao["imagens"]:
@@ -118,7 +113,7 @@ async def solve(session_id: str = Path(...)):
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Timeout ao chamar a API da Anthropic.")
     finally:
-        del sessoes[session_id]  # encerra a sessao sempre, deu certo ou nao
+        del sessoes[session_id]
 
     if response.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Erro API Anthropic ({response.status_code}): {response.text}")
@@ -133,7 +128,6 @@ async def solve(session_id: str = Path(...)):
 
 @app.post("/upload")
 async def upload_image_legado(request: Request):
-    """Mantido para compatibilidade: 1 foto, 1 resposta, sem sessao."""
     limpa_sessoes_velhas()
     image_bytes = await request.body()
     if not image_bytes:
@@ -141,3 +135,21 @@ async def upload_image_legado(request: Request):
     sid = f"legado-{time.time()}"
     sessoes[sid] = {"imagens": [image_bytes], "criada_em": time.time()}
     return await solve(sid)
+
+
+# ---- Rotas simples, sem ID de sessao, para o firmware com OLED/botoes ----
+SESSAO_UNICA = "dispositivo-unico"
+
+@app.post("/capture")
+async def capture_simples(request: Request):
+    return await capture(request, session_id=SESSAO_UNICA)
+
+@app.get("/solve")
+async def solve_simples():
+    return await solve(session_id=SESSAO_UNICA)
+
+@app.get("/reset")
+async def reset_simples():
+    if SESSAO_UNICA in sessoes:
+        del sessoes[SESSAO_UNICA]
+    return {"status": "sessao limpa"}
