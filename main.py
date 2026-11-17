@@ -4,6 +4,7 @@ import base64
 import httpx
 from fastapi import FastAPI, Request, HTTPException, Path
 from fastapi.responses import JSONResponse
+from fastapi.responses import Response
 
 app = FastAPI()
 
@@ -23,7 +24,7 @@ tabelas, só cuidado que pode ter enunciado de outra questão pegando sem querer
 Junte as informacoes de todas as imagens recebidas como se fossem
 pedacos do mesmo enunciado antes de resolver.
 Devolva a resolucao COMPLETA e RESUMIDA: sem introducao, sem comentarios e
-sem explicar o que entendeu, apenas dizendo qual o numero da questão no inicio e a resolução em seguida.
+sem explicar o que entendeu, apenas inicie com "questão (numero dela)" e aí vem a resolução.
 Formato (vai para um visor minusculo de 21 colunas, paginas de linhas):
 use quantas linhas forem necessarias, cada uma com no maximo 21 caracteres,
 uma operacao por linha, sem pular nenhum passo que gere numero.
@@ -164,3 +165,16 @@ async def reset_simples():
     if SESSAO_UNICA in sessoes:
         del sessoes[SESSAO_UNICA]
     return {"status": "sessao limpa"}
+
+@app.get("/debug")
+async def debug_lista():
+    sessao = sessoes.get(SESSAO_UNICA)
+    n = len(sessao["imagens"]) if sessao else 0
+    return {"fotos_na_sessao_atual": n, "veja_em": [f"/debug/{i}" for i in range(n)]}
+
+@app.get("/debug/{index}")
+async def debug_imagem(index: int):
+    sessao = sessoes.get(SESSAO_UNICA)
+    if not sessao or index >= len(sessao["imagens"]):
+        raise HTTPException(status_code=404, detail="Imagem nao encontrada (tire fotos com 'f' primeiro).")
+    return Response(content=sessao["imagens"][index], media_type="image/jpeg")
